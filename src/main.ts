@@ -1,4 +1,4 @@
-import { ArcRotateCamera, CreateGround, CreateSphere, DirectionalLight, Engine, HavokPlugin, HemisphericLight, PhysicsAggregate, PhysicsShapeType, Scene, ShadowGenerator, Vector3 } from '@babylonjs/core';
+import { ArcRotateCamera, CreateCapsule, CreateGround,  DirectionalLight, Engine, HavokPlugin, HemisphericLight, PhysicsAggregate, PhysicsShapeType, Scene, ShadowGenerator, Vector3 } from '@babylonjs/core';
 import './style.scss'
 import { Inspector } from '@babylonjs/inspector';
 
@@ -22,9 +22,9 @@ HavokPhysics().then((havokInstance) => {
   
   Inspector.Show(scene, {});
   
-  const camera = new ArcRotateCamera("camera1", 0, 0, 0, new Vector3(0, 5, -10), scene);
+  const camera = new ArcRotateCamera("camera1", 0, 0, 0, new Vector3(0, 25, -50), scene);
   
-  camera.setTarget(Vector3.Zero());
+  camera.setTarget(new Vector3(0,2,0));
   
   camera.attachControl(canvas, true);
   
@@ -34,23 +34,33 @@ HavokPhysics().then((havokInstance) => {
   const directionalLight = new DirectionalLight("dir01", new Vector3(-1, -2, -1), scene);
   directionalLight.intensity=0.5;
   directionalLight.position = new Vector3(20, 40, 20);
-  const shadowGenerator = new ShadowGenerator(1024, directionalLight);
+  const shadowGenerator = new ShadowGenerator(1024*4, directionalLight);
 
-  const sphere = CreateSphere("sphere1", {
-    segments:16,
-    diameter:1, 
-  },scene);
-  sphere.position.y=2;
-  sphere.receiveShadows=true;
-  shadowGenerator.addShadowCaster(sphere);
-
-  /* const sphereAggregate = */new PhysicsAggregate(sphere, PhysicsShapeType.SPHERE, { mass: 1, restitution: 0.75 }, scene);
+  for(let iz=-5;iz<=5;iz+=1){
+    for(let ix=-5;ix<=5;ix+=1){
+      for(let iy=0;iy<=10;iy+=1){
+        const capsule = CreateCapsule("capsule"+iy,{
+          height:2,
+          radius:0.5,
+        },scene);
+        capsule.position.y=5+iy*2;
+        // 崩れないので少しずらしておく
+        capsule.position.x=ix+iy*0.001;
+        capsule.position.z=iz;
+        capsule.receiveShadows=true;
+        shadowGenerator.addShadowCaster(capsule);
+      
+        /* const capsuleAggregate = */new PhysicsAggregate(capsule, PhysicsShapeType.CAPSULE, { mass: 1, restitution: 0.75 }, scene);
+      
+      }
+    }
+  }
 
   
   const ground = CreateGround("ground1", {
-    width:6,
-    height:6,
-    subdivisions:2,
+    width:1000,
+    height:1000,
+    subdivisions:10,
   }, scene);
   ground.receiveShadows=true;
 
