@@ -1,11 +1,8 @@
-import { ArcRotateCamera, CreateGround, CreateSphere, Engine, HavokPlugin, HemisphericLight, PhysicsAggregate, PhysicsShapeType, Scene, Vector3 } from '@babylonjs/core';
+import { ArcRotateCamera, CreateGround, CreateSphere, DirectionalLight, Engine, HavokPlugin, HemisphericLight, PhysicsAggregate, PhysicsShapeType, Scene, ShadowGenerator, Vector3 } from '@babylonjs/core';
 import './style.scss'
 import { Inspector } from '@babylonjs/inspector';
 
 import HavokPhysics from "@babylonjs/havok";
-
-
-
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <canvas id="renderCanvas"></canvas>
@@ -31,13 +28,21 @@ HavokPhysics().then((havokInstance) => {
   
   camera.attachControl(canvas, true);
   
-  const light = new HemisphericLight("light1", new Vector3(0, 1, 0), scene);
-  light.intensity=0.7;
+  const hemisphericLight = new HemisphericLight("light1", new Vector3(0, 1, 0), scene);
+  hemisphericLight.intensity=0.5;
+
+  const directionalLight = new DirectionalLight("dir01", new Vector3(-1, -2, -1), scene);
+  directionalLight.intensity=0.5;
+  directionalLight.position = new Vector3(20, 40, 20);
+  const shadowGenerator = new ShadowGenerator(1024, directionalLight);
+
   const sphere = CreateSphere("sphere1", {
     segments:16,
     diameter:1, 
   },scene);
   sphere.position.y=2;
+  sphere.receiveShadows=true;
+  shadowGenerator.addShadowCaster(sphere);
 
   /* const sphereAggregate = */new PhysicsAggregate(sphere, PhysicsShapeType.SPHERE, { mass: 1, restitution: 0.75 }, scene);
 
@@ -47,6 +52,7 @@ HavokPhysics().then((havokInstance) => {
     height:6,
     subdivisions:2,
   }, scene);
+  ground.receiveShadows=true;
 
   /* const groundAggregate = */new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene);
   
