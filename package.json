@@ -16,6 +16,8 @@
   "dependencies": {
     "@babylonjs/core": "^6.15.0",
     "@babylonjs/havok": "^1.1.2",
-    "@babylonjs/inspector": "^6.15.0"
+    "@babylonjs/inspector": "^6.15.0",
+    "dungeoneer": "^2.1.5",
+    "pathfinding": "^0.4.18"
   }
 }
