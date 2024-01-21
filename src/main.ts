@@ -1,4 +1,5 @@
 import {
+  AbstractMesh,
   ArcRotateCamera,
   Color3,
   CreateCapsule,
@@ -27,11 +28,52 @@ import dungeoneer from "dungeoneer";
 
 import pathfinding from "pathfinding";
 
+import * as ktx from "ktx2-encoder";
+import type { encodeKTX2Cube } from "../node_modules/ktx2-encoder/types/index";
+
+/*
+import {
+  RadialCloner,
+  LinearCloner,
+  MatrixCloner,
+  ObjectCloner,
+} from "example-typescript-package";
+*/
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
 <canvas id="renderCanvas"></canvas>
 `;
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
+
+console.log(ktx);
+
+var imgElephant = document.createElement("img");
+
+document.body.appendChild(imgElephant);
+
+imgElephant.src = "https://playground.babylonjs.com/textures/floor.png";
+imgElephant.crossOrigin = "anonymous";
+
+let nk = await ktx.encodeToKTX2(imgElephant, { type: 0 });
+
+console.log(nk);
+
+let blob = new Blob([nk]);
+
+console.log(blob);
+
+var blobUrl = URL.createObjectURL(blob);
+
+console.log(blobUrl);
+
+var link = document.createElement("a"); // Or maybe get it from the current document
+link.href = blobUrl;
+link.download = "aDefaultFileName.ktx2";
+link.innerHTML = "Click here to download the file";
+document.body.appendChild(link); // Or append it whereever you want
+link.style.position = "absolute";
+
+//let nf = new File(nk, "sdfsdf");
 
 HavokPhysics().then((havokInstance: any) => {
   const havokPlugin = new HavokPlugin(true, havokInstance);
@@ -379,7 +421,39 @@ HavokPhysics().then((havokInstance: any) => {
   console.log(allFloorMesh);
 
 */
+  /*
+  const rc = new RadialCloner([box], scene, {
+    count: 24,
+    radius: 8,
+  });
+  console.log(rc);
 
+  const lc = new LinearCloner([box], scene, {
+    count: 12,
+    P: { x: 0, y: 40, z: 0 },
+  });
+
+  console.log(lc);
+
+  const mc = new MatrixCloner([box], scene, {
+    mcount: { x: 30, y: 30, z: 10 },
+  });
+
+  console.log(mc);
+  mc._rootNode!.position.y = 100;
+
+  const sph1 = MeshBuilder.CreateIcoSphere("ico", {
+    radius: 220,
+    subdivisions: 4,
+  });
+  const oc = new ObjectCloner([box], sph1, scene);
+
+  oc._rootNode!.position.y = 120;
+  /*
+  setTimeout(() => {
+    scene.freezeActiveMeshes();
+  }, 5000);
+*/
   //
   //
   engine.runRenderLoop(() => {
