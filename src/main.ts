@@ -31,6 +31,10 @@ import pathfinding from "pathfinding";
 import * as ktx from "ktx2-encoder";
 import type { encodeKTX2Cube } from "../node_modules/ktx2-encoder/types/index";
 
+import { load, encode } from "@loaders.gl/core";
+import { KTX2BasisWriter } from "@loaders.gl/textures";
+import { ImageLoader } from "@loaders.gl/images";
+
 /*
 import {
   RadialCloner,
@@ -39,6 +43,8 @@ import {
   ObjectCloner,
 } from "example-typescript-package";
 */
+
+console.log(KTX2BasisWriter);
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
 <canvas id="renderCanvas"></canvas>
 `;
@@ -55,10 +61,20 @@ imgElephant.src = "https://playground.babylonjs.com/textures/floor.png";
 imgElephant.crossOrigin = "anonymous";
 
 let nk = await ktx.encodeToKTX2(imgElephant, { type: 0 });
-
 console.log(nk);
+const image = await load(
+  "https://playground.babylonjs.com/textures/floor.png",
+  ImageLoader,
+  { image: { type: "data" } }
+);
 
-let blob = new Blob([nk]);
+console.log(image);
+
+const encodedData = await encode(image, KTX2BasisWriter);
+
+console.log(encodedData);
+
+let blob = new Blob([nk]); // or encodedData
 
 console.log(blob);
 

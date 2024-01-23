@@ -19,6 +19,8 @@
     "@babylonjs/inspector": "^6.38.1",
     "dungeoneer": "^2.1.5",
     "ktx2-encoder": "^0.0.6",
+    "@loaders.gl/core": "^4.0.4",
+    "@loaders.gl/textures": "^4.0.4",
     "pathfinding": "^0.4.18"
   }
 }
