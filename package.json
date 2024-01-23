@@ -17,6 +17,9 @@
     "@babylonjs/core": "^6.38.1",
     "@babylonjs/havok": "^1.1.2",
     "@babylonjs/inspector": "^6.38.1",
+    "@gltf-transform/core": "^3.10.0",
+    "@gltf-transform/extensions": "^3.10.0",
+    "@gltf-transform/functions": "^3.10.0",
     "dungeoneer": "^2.1.5",
     "ktx2-encoder": "^0.0.6",
     "pathfinding": "^0.4.18"

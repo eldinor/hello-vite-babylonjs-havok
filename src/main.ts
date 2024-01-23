@@ -14,6 +14,7 @@ import {
   PhysicsAggregate,
   PhysicsShapeType,
   Scene,
+  SceneLoader,
   ShadowGenerator,
   StandardMaterial,
   Tools,
@@ -29,7 +30,13 @@ import dungeoneer from "dungeoneer";
 import pathfinding from "pathfinding";
 
 import * as ktx from "ktx2-encoder";
-import type { encodeKTX2Cube } from "../node_modules/ktx2-encoder/types/index";
+
+import { RadialCloner } from "example-typescript-package";
+
+import { WebIO } from "@gltf-transform/core";
+import { Document } from "@gltf-transform/core";
+import { ALL_EXTENSIONS, KHRTextureBasisu } from "@gltf-transform/extensions";
+import { textureCompress } from "@gltf-transform/functions";
 
 /*
 import {
@@ -46,6 +53,17 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 
 console.log(ktx);
+
+//@ts-ignore
+console.stdlog = console.log.bind(console);
+//@ts-ignore
+console.logs = [];
+console.log = function () {
+  //@ts-ignore
+  console.logs.push(Array.from(arguments));
+  //@ts-ignore
+  console.stdlog.apply(console, arguments);
+};
 
 var imgElephant = document.createElement("img");
 
@@ -75,36 +93,122 @@ link.style.position = "absolute";
 
 //let nf = new File(nk, "sdfsdf");
 
-HavokPhysics().then((havokInstance: any) => {
-  const havokPlugin = new HavokPlugin(true, havokInstance);
+const assetArrayBuffer = await Tools.LoadFileAsync(
+  "https://raw.githubusercontent.com/eldinor/ForBJS/master/power/carrier.glb",
+  true
+);
 
-  const engine = new Engine(canvas);
+console.log(assetArrayBuffer);
 
-  const scene = new Scene(engine);
-  scene.enablePhysics(new Vector3(0, -9.8, 0), havokPlugin);
+const assetBlob = new Blob([assetArrayBuffer]);
 
-  Inspector.Show(scene, {});
+console.log(assetBlob);
 
-  const camera = new ArcRotateCamera(
-    "camera1",
-    0,
-    0,
-    50,
-    new Vector3(0, 25, -50),
-    scene
-  );
+const arr = new Uint8Array(await assetBlob.arrayBuffer());
 
-  camera.setTarget(new Vector3(50, 2, 50));
+const io = new WebIO().registerExtensions(ALL_EXTENSIONS);
 
-  camera.attachControl(canvas, true);
+const doc = await io.readBinary(arr);
 
-  const hemisphericLight = new HemisphericLight(
-    "light1",
-    new Vector3(0, 1, 0),
-    scene
-  );
-  hemisphericLight.intensity = 0.5;
-  /*
+// await doc.transform(textureCompress({ targetFormat: "png" }));
+
+//await doc.transform(textureCompress({ resize: [1024, 1024] }));
+
+// Create an Extension attached to the Document.
+const basisuExtension = doc.createExtension(KHRTextureBasisu).setRequired(true);
+/*
+console.log(doc.getRoot().listTextures()[0].getImage());
+
+doc.getRoot().listTextures()[0].setMimeType("image/ktx2").setImage(nk);
+*/
+// const i1 = doc.getRoot().listTextures()[0].getImage();
+
+//const i1ktx = await ktx.encodeToKTX2(i1!.buffer, { type: 0 });
+
+// doc.getRoot().listTextures()[0].setMimeType("image/ktx2").setImage(i1ktx);
+
+console.log("Starting KTX2 Conversion");
+
+let totalTime = 0;
+
+for (const tex of doc.getRoot().listTextures()) {
+  let timer = Date.now();
+  let img = tex.getImage();
+
+  if (img) {
+    let imgKTX = await ktx.encodeToKTX2(img.buffer, {
+      type: 1,
+      enableDebug: true,
+      generateMipmap: true,
+
+      //  isSetKTX2SRGBTransferFunc: false,
+      //  qualityLevel: 230,
+    });
+    tex.setMimeType("image/ktx2").setImage(imgKTX);
+  }
+  console.log(tex.getName(), tex.getSize());
+  console.log(((Date.now() - timer) * 0.001).toFixed(2) + " seconds");
+  totalTime += Number(((Date.now() - timer) * 0.001).toFixed(2));
+}
+
+console.log("totalTime ", totalTime, " seconds");
+//@ts-ignore
+console.log(console.logs);
+//@ts-ignore
+console.logs.length = 0;
+/*
+doc
+  .getRoot()
+  .listTextures()
+  .forEach( async (tex) => {
+    const img = tex.getImage();
+
+    const imgKTX =  await ktx.encodeToKTX2(img!.buffer, { type: 0 });
+    tex.setMimeType("image/ktx2").setImage(imgKTX);
+  });
+*/
+//
+//
+const glb = await io.writeBinary(doc);
+
+const downBlob = new Blob([glb]);
+const assetUrl = URL.createObjectURL(downBlob);
+
+const linkD = document.createElement("a");
+linkD.href = assetUrl;
+linkD.download = "boom" + "-ktx.glb";
+linkD.click();
+
+// const newGLB = await SceneLoader.ImportMeshAsync("", assetUrl, undefined, scene, undefined, ".glb");
+
+///
+
+const engine = new Engine(canvas);
+
+const scene = new Scene(engine);
+
+Inspector.Show(scene, {});
+
+const camera = new ArcRotateCamera(
+  "camera1",
+  0,
+  0,
+  50,
+  new Vector3(0, 25, -50),
+  scene
+);
+
+camera.setTarget(new Vector3(50, 2, 50));
+
+camera.attachControl(canvas, true);
+
+const hemisphericLight = new HemisphericLight(
+  "light1",
+  new Vector3(0, 1, 0),
+  scene
+);
+hemisphericLight.intensity = 0.5;
+/*
   const directionalLight = new DirectionalLight(
     "dir01",
     new Vector3(-1, -2, -1),
@@ -136,7 +240,7 @@ HavokPhysics().then((havokInstance: any) => {
         //  shadowGenerator.addShadowCaster(capsule);
 
         /* const capsuleAggregate = */
-  /*
+/*
         new PhysicsAggregate(
           capsule,
           PhysicsShapeType.CAPSULE,
@@ -147,150 +251,143 @@ HavokPhysics().then((havokInstance: any) => {
     }
   }
 */
-  const ground = CreateGround(
-    "ground1",
-    {
-      width: 1000,
-      height: 1000,
-      subdivisions: 10,
-    },
-    scene
-  );
-  ground.position.y = -0.1;
-  ground.receiveShadows = true;
+const ground = CreateGround(
+  "ground1",
+  {
+    width: 1000,
+    height: 1000,
+    subdivisions: 10,
+  },
+  scene
+);
+ground.position.y = -0.1;
+ground.receiveShadows = true;
 
-  /* const groundAggregate = */ new PhysicsAggregate(
-    ground,
-    PhysicsShapeType.BOX,
-    { mass: 0 },
-    scene
-  );
-  //
-  //
+//
 
-  //
-  const BOXSIZE = 10;
+//
+const BOXSIZE = 10;
 
-  //
-  const box = MeshBuilder.CreateBox("box");
-  box.setEnabled(false);
+//
+const box = MeshBuilder.CreateBox("box");
+box.setEnabled(false);
 
-  box.material = new StandardMaterial("boxMat");
-  box.material.diffuseColor = Color3.Blue();
+box.material = new StandardMaterial("boxMat");
+box.material.diffuseColor = Color3.Blue();
 
-  const door = MeshBuilder.CreateBox("door", {
-    width: 0.2,
-    height: 1.2,
-    depth: 1,
-  });
-  door.setEnabled(false);
-  door.material = new StandardMaterial("doorMat");
-  door.material.diffuseColor = Color3.Green();
+const door = MeshBuilder.CreateBox("door", {
+  width: 0.2,
+  height: 1.2,
+  depth: 1,
+});
+door.setEnabled(false);
+door.material = new StandardMaterial("doorMat");
+door.material.diffuseColor = Color3.Green();
 
-  const redBox = MeshBuilder.CreateBox("redBox", {
-    width: 1,
-    height: 1.4,
-    depth: 1,
-  });
-  redBox.material = new StandardMaterial("redBoxMat");
-  redBox.material.diffuseColor = Color3.Red();
-  redBox.setEnabled(false);
+const redBox = MeshBuilder.CreateBox("redBox", {
+  width: 1,
+  height: 1.4,
+  depth: 1,
+});
+redBox.material = new StandardMaterial("redBoxMat");
+redBox.material.diffuseColor = Color3.Red();
+redBox.setEnabled(false);
 
-  const magBox = MeshBuilder.CreateBox("magBox", {
-    width: 1,
-    height: 1.4,
-    depth: 1,
-  });
-  magBox.material = new StandardMaterial("magBoxMat");
-  magBox.material.diffuseColor = Color3.Magenta();
-  magBox.setEnabled(false);
+const magBox = MeshBuilder.CreateBox("magBox", {
+  width: 1,
+  height: 1.4,
+  depth: 1,
+});
+magBox.material = new StandardMaterial("magBoxMat");
+magBox.material.diffuseColor = Color3.Magenta();
+magBox.setEnabled(false);
 
-  const sphere = MeshBuilder.CreateSphere("sphere", {
-    diameter: 1 * BOXSIZE,
-    segments: 32,
-  });
-  sphere.setEnabled(false);
+const sphere = MeshBuilder.CreateSphere("sphere", {
+  diameter: 1 * BOXSIZE,
+  segments: 32,
+});
+sphere.setEnabled(false);
 
-  const secondBox = MeshBuilder.CreateBox("secondBox", {
-    width: 1 * BOXSIZE,
-    height: 1 * BOXSIZE,
-    depth: 1 * BOXSIZE,
-  });
-  secondBox.material = new StandardMaterial("secondBox");
-  secondBox.material.diffuseColor = Color3.Purple();
-  secondBox.setEnabled(false);
+const secondBox = MeshBuilder.CreateBox("secondBox", {
+  width: 1 * BOXSIZE,
+  height: 1 * BOXSIZE,
+  depth: 1 * BOXSIZE,
+});
+secondBox.material = new StandardMaterial("secondBox");
+secondBox.material.diffuseColor = Color3.Purple();
+secondBox.setEnabled(false);
 
-  const tetra = MeshBuilder.CreatePolyhedron("tetra", { type: 8, size: 10 });
-  tetra.rotation.x = Tools.ToRadians(-139);
-  tetra.rotation.y = Tools.ToRadians(-10);
-  tetra.rotation.z = Tools.ToRadians(9);
-  tetra.setEnabled(false);
-  const dungeon = dungeoneer.build({
-    width: 31,
-    height: 31,
-    seed: "babylonpress",
-  });
+const tetra = MeshBuilder.CreatePolyhedron("tetra", { type: 8, size: 10 });
+tetra.rotation.x = Tools.ToRadians(-139);
+tetra.rotation.y = Tools.ToRadians(-10);
+tetra.rotation.z = Tools.ToRadians(9);
+tetra.setEnabled(false);
+const dungeon = dungeoneer.build({
+  width: 31,
+  height: 31,
+  seed: "babylonpress",
+});
 
-  console.log(dungeon);
+console.log(dungeon);
 
-  let wallArray: Array<any> = [];
-  let doorArray: Array<any> = [];
-  let floorArray: Array<any> = [];
-  let roomCenterArray: Array<any> = [];
-  let passMeshArray: Array<any> = [];
+let wallArray: Array<any> = [];
+let doorArray: Array<any> = [];
+let floorArray: Array<any> = [];
+let roomCenterArray: Array<any> = [];
+let passMeshArray: Array<any> = [];
 
-  let pathfindArray: Array<any> = [];
+let pathfindArray: Array<any> = [];
 
-  dungeon.tiles.forEach((element: any) => {
-    //console.log(element);
+dungeon.tiles.forEach((element: any) => {
+  //console.log(element);
 
-    element.forEach((tile: any) => {
-      if (tile.type == "wall") {
-        //    console.log(tile);
-        wallArray.push(tile);
-      }
-      if (tile.type == "door") {
-        //    console.log(tile);
-        doorArray.push(tile);
-      }
-      if (tile.type == "floor") {
-        //    console.log(tile);
-        floorArray.push(tile);
-      }
-    });
-  });
-  console.log(wallArray);
-  console.log(doorArray);
-  console.log(floorArray);
-
-  box.scaling.scaleInPlace(BOXSIZE);
-  door.scaling.scaleInPlace(BOXSIZE);
-
-  wallArray.forEach((element: any, index: any) => {
-    const wallBox = box.createInstance("wallBox" + index.toString());
-    wallBox.position.x = element.x * BOXSIZE;
-    wallBox.position.z = element.y * BOXSIZE;
-  });
-
-  doorArray.forEach((element: any) => {
-    const doorBox = door.createInstance("doorBox");
-    doorBox.position.x = element.x * BOXSIZE;
-    doorBox.position.z = element.y * BOXSIZE;
-
-    if (element.neighbours.e.type == "wall") {
-      console.log("WALL");
-      doorBox.rotation.y = Math.PI / 2;
+  element.forEach((tile: any) => {
+    if (tile.type == "wall") {
+      //    console.log(tile);
+      wallArray.push(tile);
+    }
+    if (tile.type == "door") {
+      //    console.log(tile);
+      doorArray.push(tile);
+    }
+    if (tile.type == "floor") {
+      //    console.log(tile);
+      floorArray.push(tile);
     }
   });
+});
+console.log(wallArray);
+console.log(doorArray);
+console.log(floorArray);
 
-  // Rooms center
-  dungeon.rooms.forEach((element: any, index: any) => {
-    const redBoxInst = redBox.createInstance("redBoxI" + index.toString());
-    redBoxInst.position.x = (element.x + element.width / 2 - 0.5) * BOXSIZE;
-    redBoxInst.position.z = (element.y + element.height / 2 - 0.5) * BOXSIZE;
+box.scaling.scaleInPlace(BOXSIZE);
+door.scaling.scaleInPlace(BOXSIZE);
 
-    console.log(element);
-    /*
+wallArray.forEach((element: any, index: any) => {
+  const wallBox = box.createInstance("wallBox" + index.toString());
+  wallBox.position.x = element.x * BOXSIZE;
+  wallBox.position.z = element.y * BOXSIZE;
+});
+
+doorArray.forEach((element: any) => {
+  const doorBox = door.createInstance("doorBox");
+  doorBox.position.x = element.x * BOXSIZE;
+  doorBox.position.z = element.y * BOXSIZE;
+
+  if (element.neighbours.e.type == "wall") {
+    console.log("WALL");
+    doorBox.rotation.y = Math.PI / 2;
+  }
+});
+
+// Rooms center
+dungeon.rooms.forEach((element: any, index: any) => {
+  const redBoxInst = redBox.createInstance("redBoxI" + index.toString());
+  redBoxInst.position.x = (element.x + element.width / 2 - 0.5) * BOXSIZE;
+  redBoxInst.position.z = (element.y + element.height / 2 - 0.5) * BOXSIZE;
+
+  console.log(element);
+  /*
     const tetraInst = tetra.createInstance("tetraInst" + index.toString());
     tetraInst.position.y += (BOXSIZE * element.width) / 2 - element.width * 2;
     tetraInst.position.x = (element.x + element.width / 2 - 0.5) * BOXSIZE;
@@ -302,30 +399,30 @@ HavokPhysics().then((havokInstance: any) => {
     sphereInst.position.z = (element.y + element.height / 2 - 0.5) * BOXSIZE;
     sphereInst.scaling.scaleInPlace(element.width + 0.5);
 */
-    roomCenterArray.push(redBoxInst);
-
-    //
-    //
-  });
-  console.log(roomCenterArray);
-
-  //
-
-  roomCenterArray.forEach((element: any, index: any) => {
-    const secLevelBox = secondBox.createInstance(
-      "secLevelBox" + index.toString()
-    );
-    secLevelBox.position = element.position;
-  });
+  roomCenterArray.push(redBoxInst);
 
   //
   //
+});
+console.log(roomCenterArray);
 
-  //
-  //
+//
 
-  //let boolCounter = true;
-  /*
+roomCenterArray.forEach((element: any, index: any) => {
+  const secLevelBox = secondBox.createInstance(
+    "secLevelBox" + index.toString()
+  );
+  secLevelBox.position = element.position;
+});
+
+//
+//
+
+//
+//
+
+//let boolCounter = true;
+/*
   var matrix = [
     [0, 0, 0, 0, 0],
     [1, 0, 0, 0, 1],
@@ -333,56 +430,51 @@ HavokPhysics().then((havokInstance: any) => {
   ];
 */
 
-  var grid = new pathfinding.Grid(
-    dungeon.tiles.length,
-    dungeon.tiles[0].length
-  );
+var grid = new pathfinding.Grid(dungeon.tiles.length, dungeon.tiles[0].length);
 
-  dungeon.tiles.forEach((xtile: any) => {
-    xtile.forEach((ytile: any) => {
-      if (ytile.type !== "wall") {
-        grid.setWalkableAt(ytile.x, ytile.y, true);
-      } else {
-        grid.setWalkableAt(ytile.x, ytile.y, false);
-      }
-    });
+dungeon.tiles.forEach((xtile: any) => {
+  xtile.forEach((ytile: any) => {
+    if (ytile.type !== "wall") {
+      grid.setWalkableAt(ytile.x, ytile.y, true);
+    } else {
+      grid.setWalkableAt(ytile.x, ytile.y, false);
+    }
   });
+});
 
-  console.log(grid);
+console.log(grid);
 
-  var finder = new pathfinding.AStarFinder({
-    allowDiagonal: true,
-    dontCrossCorners: true,
+var finder = new pathfinding.AStarFinder({
+  allowDiagonal: true,
+  dontCrossCorners: true,
+});
+var path = finder.findPath(1, 2, 15, 26, grid.clone());
+
+console.log(path);
+console.log(grid);
+
+const floorMesh = MeshBuilder.CreateBox("floorMesh");
+floorMesh.material = new StandardMaterial("floorMeshMat");
+floorMesh.material.diffuseColor = Color3.Teal();
+
+floorMesh.scaling.scaleInPlace(10);
+floorMesh.setEnabled(false);
+
+if (path) {
+  path.forEach((element: any, index: any) => {
+    const floorInst = floorMesh.createInstance("floorMeshI" + index.toString());
+    floorInst.position.x = element[0] * BOXSIZE;
+    floorInst.position.z = element[1] * BOXSIZE;
+
+    //   console.log(element);
+
+    //floorInst.position.x = element[0];
+    //floorInst.position.z = element[1];
   });
-  var path = finder.findPath(1, 2, 15, 26, grid.clone());
+}
+//
 
-  console.log(path);
-  console.log(grid);
-
-  const floorMesh = MeshBuilder.CreateBox("floorMesh");
-  floorMesh.material = new StandardMaterial("floorMeshMat");
-  floorMesh.material.diffuseColor = Color3.Teal();
-
-  floorMesh.scaling.scaleInPlace(10);
-  floorMesh.setEnabled(false);
-
-  if (path) {
-    path.forEach((element: any, index: any) => {
-      const floorInst = floorMesh.createInstance(
-        "floorMeshI" + index.toString()
-      );
-      floorInst.position.x = element[0] * BOXSIZE;
-      floorInst.position.z = element[1] * BOXSIZE;
-
-      //   console.log(element);
-
-      //floorInst.position.x = element[0];
-      //floorInst.position.z = element[1];
-    });
-  }
-  //
-
-  /* BUILD FLOOR
+/* BUILD FLOOR
   const floorMesh = MeshBuilder.CreateGround("floorMesh");
   //  floorMesh.rotation.x = Math.PI / 2;
   floorMesh.material = new StandardMaterial("floorMeshMat");
@@ -405,7 +497,7 @@ HavokPhysics().then((havokInstance: any) => {
   console.log(passMeshArray);
 */
 
-  /* MERGE ALL WALKABLE TILES
+/* MERGE ALL WALKABLE TILES
   const allFloorMesh = Mesh.MergeMeshes(passMeshArray, true, true);
   // allFloorMesh?.scaling.scaleInPlace(10);
 
@@ -421,7 +513,7 @@ HavokPhysics().then((havokInstance: any) => {
   console.log(allFloorMesh);
 
 */
-  /*
+/*
   const rc = new RadialCloner([box], scene, {
     count: 24,
     radius: 8,
@@ -454,15 +546,14 @@ HavokPhysics().then((havokInstance: any) => {
     scene.freezeActiveMeshes();
   }, 5000);
 */
-  //
-  //
-  engine.runRenderLoop(() => {
-    scene.render();
-  });
+//
+//
+engine.runRenderLoop(() => {
+  scene.render();
+});
 
-  window.addEventListener("resize", function () {
-    engine.resize();
-  });
+window.addEventListener("resize", function () {
+  engine.resize();
 });
 
 function countProperties(obj: any) {
