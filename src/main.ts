@@ -16,11 +16,15 @@ import { Document, WebIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import {
   dedup,
+  meshopt,
   prune,
+  quantize,
+  reorder,
   resample,
   textureCompress,
 } from "@gltf-transform/functions";
 import { NiceLoader } from "./niceloader";
+import { MeshoptEncoder } from "meshoptimizer";
 
 async function renderScene() {
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
@@ -36,7 +40,7 @@ async function renderScene() {
   hdrTexture.gammaSpace = false;
   scene.environmentTexture = hdrTexture;
 
-  // Inspector.Show(scene, { embedMode: true });
+  Inspector.Show(scene, { embedMode: true });
 
   const camera = new ArcRotateCamera(
     "camera",
@@ -63,15 +67,13 @@ async function renderScene() {
   new NiceLoader(scene, modelArr, callback);
 
   function callback() {
-    console.log("Callback");
-
     let button = document.getElementById("optimized");
     if (!button) {
       button = document.createElement("button");
       button.setAttribute("id", "optimized");
       button.style.position = "absolute";
       button.style.top = "10px";
-      button.style.right = "10px";
+      button.style.right = "410px";
       button.innerText = "Save Optimized";
       document.body.appendChild(button);
     }
@@ -95,7 +97,8 @@ async function renderScene() {
     const io = new WebIO().registerExtensions(ALL_EXTENSIONS);
     const doc = await io.readBinary(arr);
     //
-
+    await MeshoptEncoder.ready;
+    //
     await doc.transform(
       dedup(),
       prune(),
@@ -103,18 +106,20 @@ async function renderScene() {
       textureCompress({
         targetFormat: "webp",
         resize: [1024, 2024],
-      })
+      }),
+      quantize()
     );
 
     //
-    const glb = await io.writeBinary(doc);
+    let glb = await io.writeBinary(doc);
     // Then one may convert it to the URL
-    const assetBlob = new Blob([glb]);
+    let assetBlob = new Blob([glb]);
     const assetUrl = URL.createObjectURL(assetBlob);
     const link = document.createElement("a");
     link.href = assetUrl;
     link.download = "SomeName" + ".glb";
     link.click();
+    glb = null;
   }
 
   //

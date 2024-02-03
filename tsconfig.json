@@ -8,7 +8,7 @@
 
     /* Bundler mode */
     "moduleResolution": "node",
-    "noEmit": true,
+    "noEmit": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
     
