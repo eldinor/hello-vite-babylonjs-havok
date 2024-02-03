@@ -1,77 +1,130 @@
-import { ArcRotateCamera, CreateCapsule, CreateGround,  DirectionalLight, Engine, HavokPlugin, HemisphericLight, PhysicsAggregate, PhysicsShapeType, Scene, ShadowGenerator, Vector3 } from '@babylonjs/core';
-import './style.scss'
-import { Inspector } from '@babylonjs/inspector';
+import {
+  ArcRotateCamera,
+  Engine,
+  HemisphericLight,
+  Scene,
+  Vector3,
+  MeshBuilder,
+  CubeTexture,
+  Tools,
+} from "@babylonjs/core";
+import "./style.scss";
+import { Inspector } from "@babylonjs/inspector";
+import "@babylonjs/loaders";
+import { GLTF2Export } from "@babylonjs/serializers/glTF";
+import { Document, WebIO } from "@gltf-transform/core";
+import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
+import {
+  dedup,
+  prune,
+  resample,
+  textureCompress,
+} from "@gltf-transform/functions";
+import { NiceLoader } from "./niceloader";
 
-import HavokPhysics from "@babylonjs/havok";
-
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-<canvas id="renderCanvas"></canvas>
-`;
-
-const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
-
-
-HavokPhysics().then((havokInstance) => {
-
-  const havokPlugin = new HavokPlugin(true, havokInstance);
+async function renderScene() {
+  const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 
   const engine = new Engine(canvas);
 
   const scene = new Scene(engine);
-  scene.enablePhysics(new Vector3(0, -9.8, 0), havokPlugin);
-  
-  Inspector.Show(scene, {});
-  
-  const camera = new ArcRotateCamera("camera1", 0, 0, 0, new Vector3(0, 25, -50), scene);
-  
-  camera.setTarget(new Vector3(0,2,0));
-  
+  const hdrTexture = CubeTexture.CreateFromPrefilteredData(
+    "https://playground.babylonjs.com/textures/environment.env",
+    scene
+  );
+  hdrTexture.name = "envTex";
+  hdrTexture.gammaSpace = false;
+  scene.environmentTexture = hdrTexture;
+
+  // Inspector.Show(scene, { embedMode: true });
+
+  const camera = new ArcRotateCamera(
+    "camera",
+    Tools.ToRadians(90),
+    Tools.ToRadians(65),
+    10,
+    Vector3.Zero(),
+    scene
+  );
+
+  camera.setTarget(Vector3.Zero());
+
   camera.attachControl(canvas, true);
-  
-  const hemisphericLight = new HemisphericLight("light1", new Vector3(0, 1, 0), scene);
-  hemisphericLight.intensity=0.5;
 
-  const directionalLight = new DirectionalLight("dir01", new Vector3(-1, -2, -1), scene);
-  directionalLight.intensity=0.5;
-  directionalLight.position = new Vector3(20, 40, 20);
-  const shadowGenerator = new ShadowGenerator(1024*4, directionalLight);
+  const hemisphericLight = new HemisphericLight(
+    "light1",
+    new Vector3(0, 1, 0),
+    scene
+  );
+  hemisphericLight.intensity = 0.5;
 
-  for(let iz=-5;iz<=5;iz+=1){
-    for(let ix=-5;ix<=5;ix+=1){
-      for(let iy=0;iy<=10;iy+=1){
-        const capsule = CreateCapsule("capsule"+iy,{
-          height:2,
-          radius:0.5,
-        },scene);
-        capsule.position.y=5+iy*2;
-        // 崩れないので少しずらしておく
-        capsule.position.x=ix+iy*0.001;
-        capsule.position.z=iz;
-        capsule.receiveShadows=true;
-        shadowGenerator.addShadowCaster(capsule);
-      
-        /* const capsuleAggregate = */new PhysicsAggregate(capsule, PhysicsShapeType.CAPSULE, { mass: 1, restitution: 0.75 }, scene);
-      
-      }
+  const modelArr: any = [];
+
+  new NiceLoader(scene, modelArr, callback);
+
+  function callback() {
+    console.log("Callback");
+
+    let button = document.getElementById("optimized");
+    if (!button) {
+      button = document.createElement("button");
+      button.setAttribute("id", "optimized");
+      button.style.position = "absolute";
+      button.style.top = "10px";
+      button.style.right = "10px";
+      button.innerText = "Save Optimized";
+      document.body.appendChild(button);
     }
+
+    button.onclick = function (_evt) {
+      exportOptimized();
+    };
   }
 
-  
-  const ground = CreateGround("ground1", {
-    width:1000,
-    height:1000,
-    subdivisions:10,
-  }, scene);
-  ground.receiveShadows=true;
+  async function exportOptimized() {
+    let options = {
+      shouldExportNode: function (node: any) {
+        return node !== camera;
+      },
+    };
 
-  /* const groundAggregate = */new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene);
-  
+    const exportScene = await GLTF2Export.GLBAsync(scene, "fileName", options);
+    const blob = exportScene.glTFFiles["fileName" + ".glb"] as Blob;
+
+    const arr = new Uint8Array(await blob.arrayBuffer());
+    const io = new WebIO().registerExtensions(ALL_EXTENSIONS);
+    const doc = await io.readBinary(arr);
+    //
+
+    await doc.transform(
+      dedup(),
+      prune(),
+      resample(),
+      textureCompress({
+        targetFormat: "webp",
+        resize: [1024, 2024],
+      })
+    );
+
+    //
+    const glb = await io.writeBinary(doc);
+    // Then one may convert it to the URL
+    const assetBlob = new Blob([glb]);
+    const assetUrl = URL.createObjectURL(assetBlob);
+    const link = document.createElement("a");
+    link.href = assetUrl;
+    link.download = "SomeName" + ".glb";
+    link.click();
+  }
+
+  //
   engine.runRenderLoop(() => {
     scene.render();
   });
-  
-  window.addEventListener('resize', function(){
+
+  window.addEventListener("resize", function () {
     engine.resize();
   });
-  
-});
+}
+
+await renderScene();

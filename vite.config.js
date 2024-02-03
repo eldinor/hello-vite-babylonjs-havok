@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 export default defineConfig({
-  base:"/hello-vite-babylonjs-havok/",
+  base:"/loader/",
   optimizeDeps: {
     exclude: ['@babylonjs/havok'],
   },
