@@ -31,13 +31,29 @@ import pathfinding from "pathfinding";
 
 import * as ktx from "ktx2-encoder";
 
-import { RadialCloner } from "example-typescript-package";
+import { encodeKTX2Cube } from "ktx2-encoder/";
 
-import { WebIO } from "@gltf-transform/core";
+// import  { NiceLoader } from "vite-vanilla-ts-template";
+
+import { NiceLoader } from "example-typescript-package";
+
+// import { NiceLoader } from "vite-vanilla-ts-template";
+
+import { ImageUtils, Transform, WebIO } from "@gltf-transform/core";
 import { Document } from "@gltf-transform/core";
 import { ALL_EXTENSIONS, KHRTextureBasisu } from "@gltf-transform/extensions";
-import { textureCompress } from "@gltf-transform/functions";
+import {
+  getTextureColorSpace,
+  listTextureSlots,
+  textureCompress,
+} from "@gltf-transform/functions";
 
+import {
+  KHR_DF_PRIMARIES_BT709,
+  KHR_DF_PRIMARIES_UNSPECIFIED,
+  read,
+  write,
+} from "ktx-parse";
 /*
 import {
   RadialCloner,
@@ -52,7 +68,9 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 
-console.log(ktx);
+console.log(encodeKTX2Cube);
+
+const NAME = "GLB CONVERTER";
 
 //@ts-ignore
 console.stdlog = console.log.bind(console);
@@ -94,7 +112,7 @@ link.style.position = "absolute";
 //let nf = new File(nk, "sdfsdf");
 
 const assetArrayBuffer = await Tools.LoadFileAsync(
-  "https://raw.githubusercontent.com/eldinor/ForBJS/master/power/carrier.glb",
+  "https://raw.githubusercontent.com/eldinor/ForBJS/master/game_ready_city_buildings.glb",
   true
 );
 
@@ -104,7 +122,7 @@ const assetBlob = new Blob([assetArrayBuffer]);
 
 console.log(assetBlob);
 
-const arr = new Uint8Array(await assetBlob.arrayBuffer());
+const arr = new Uint8Array(assetArrayBuffer);
 
 const io = new WebIO().registerExtensions(ALL_EXTENSIONS);
 
@@ -126,7 +144,7 @@ doc.getRoot().listTextures()[0].setMimeType("image/ktx2").setImage(nk);
 //const i1ktx = await ktx.encodeToKTX2(i1!.buffer, { type: 0 });
 
 // doc.getRoot().listTextures()[0].setMimeType("image/ktx2").setImage(i1ktx);
-
+/*
 console.log("Starting KTX2 Conversion");
 
 let totalTime = 0;
@@ -138,13 +156,19 @@ for (const tex of doc.getRoot().listTextures()) {
   if (img) {
     let imgKTX = await ktx.encodeToKTX2(img.buffer, {
       type: 1,
-      enableDebug: true,
+      enableDebug: false,
       generateMipmap: true,
 
       //  isSetKTX2SRGBTransferFunc: false,
       //  qualityLevel: 230,
     });
     tex.setMimeType("image/ktx2").setImage(imgKTX);
+
+    console.log(
+      "VRAM Original: ",
+      ImageUtils.getVRAMByteLength(img, "image/png")
+    );
+    console.log("VRAM: ", ImageUtils.getVRAMByteLength(imgKTX, "image/ktx2"));
   }
   console.log(tex.getName(), tex.getSize());
   console.log(((Date.now() - timer) * 0.001).toFixed(2) + " seconds");
@@ -156,6 +180,9 @@ console.log("totalTime ", totalTime, " seconds");
 console.log(console.logs);
 //@ts-ignore
 console.logs.length = 0;
+
+doc.transform(ktxfix());
+
 /*
 doc
   .getRoot()
@@ -177,7 +204,7 @@ const assetUrl = URL.createObjectURL(downBlob);
 const linkD = document.createElement("a");
 linkD.href = assetUrl;
 linkD.download = "boom" + "-ktx.glb";
-linkD.click();
+// linkD.click();
 
 // const newGLB = await SceneLoader.ImportMeshAsync("", assetUrl, undefined, scene, undefined, ".glb");
 
@@ -407,7 +434,21 @@ dungeon.rooms.forEach((element: any, index: any) => {
 console.log(roomCenterArray);
 
 //
+/*
+const lc = new LinearCloner([box], scene, {
+  count: 24,
+  offset: 3,
+  growth: 1.25,
+  P: { x: 48, y: 10, z: 0 },
+  R: { x: 0, y: 90, z: 0 },
+  S: { x: 2, y: 2, z: 2 },
+  iModeRelative: false,
+  isPickable: false,
+});
 
+console.log(lc);
+*/
+//
 roomCenterArray.forEach((element: any, index: any) => {
   const secLevelBox = secondBox.createInstance(
     "secLevelBox" + index.toString()
@@ -417,8 +458,10 @@ roomCenterArray.forEach((element: any, index: any) => {
 
 //
 //
+const myArray: any = [];
 
-//
+new NiceLoader(scene, myArray);
+
 //
 
 //let boolCounter = true;
@@ -564,4 +607,52 @@ function putMesh(mesh: Mesh, element: any, index: number) {
   const instMesh = mesh.createInstance("redBoxI" + index.toString());
   instMesh.position.x = element.x;
   instMesh.position.z = element.y;
+}
+
+export function ktxfix(): Transform {
+  return async (doc: Document): Promise<void> => {
+    const logger = doc.getLogger();
+
+    let numChanged = 0;
+
+    for (const texture of doc.getRoot().listTextures()) {
+      if (texture.getMimeType() !== "image/ktx2") continue;
+
+      const image = texture.getImage();
+      if (!image) continue;
+
+      const ktx = read(image);
+      const dfd = ktx.dataFormatDescriptor[0];
+      const slots = listTextureSlots(texture);
+
+      // Don't make changes if we have no information.
+      if (slots.length === 0) continue;
+
+      const colorSpace = getTextureColorSpace(texture);
+      const colorPrimaries =
+        colorSpace === "srgb"
+          ? KHR_DF_PRIMARIES_BT709
+          : KHR_DF_PRIMARIES_UNSPECIFIED;
+      const name = texture.getURI() || texture.getName();
+
+      let changed = false;
+
+      // See: https://github.com/donmccurdy/glTF-Transform/issues/218
+      if (dfd.colorPrimaries !== colorPrimaries) {
+        dfd.colorPrimaries = colorPrimaries;
+        logger.info(
+          `${"GLB CONVERTER"}: Set colorPrimaries=${colorPrimaries} for texture "${name}"`
+        );
+        changed = true;
+      }
+
+      if (changed) {
+        texture.setImage(write(ktx));
+        numChanged++;
+      }
+    }
+
+    logger.info(`${NAME}: Found and repaired issues in ${numChanged} textures`);
+    logger.debug(`${NAME}: Complete.`);
+  };
 }
