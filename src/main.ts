@@ -1,18 +1,17 @@
+import "./style.scss";
 import {
   ArcRotateCamera,
   Engine,
   HemisphericLight,
   Scene,
   Vector3,
-  MeshBuilder,
   CubeTexture,
   Tools,
 } from "@babylonjs/core";
-import "./style.scss";
 import { Inspector } from "@babylonjs/inspector";
 import "@babylonjs/loaders";
 import { GLTF2Export } from "@babylonjs/serializers/glTF";
-import { Document, WebIO } from "@gltf-transform/core";
+import { WebIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import {
   dedup,
@@ -23,8 +22,12 @@ import {
   resample,
   textureCompress,
 } from "@gltf-transform/functions";
-import { NiceLoader } from "./niceloader";
 import { MeshoptEncoder } from "meshoptimizer";
+import { NiceLoader } from "./niceloader";
+
+await renderScene();
+
+//
 
 async function renderScene() {
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
@@ -64,63 +67,7 @@ async function renderScene() {
 
   const modelArr: any = [];
 
-  new NiceLoader(scene, modelArr, callback);
-
-  function callback() {
-    let button = document.getElementById("optimized");
-    if (!button) {
-      button = document.createElement("button");
-      button.setAttribute("id", "optimized");
-      button.style.position = "absolute";
-      button.style.top = "10px";
-      button.style.right = "410px";
-      button.innerText = "Save Optimized";
-      document.body.appendChild(button);
-    }
-
-    button.onclick = function (_evt) {
-      exportOptimized();
-    };
-  }
-
-  async function exportOptimized() {
-    let options = {
-      shouldExportNode: function (node: any) {
-        return node !== camera;
-      },
-    };
-
-    const exportScene = await GLTF2Export.GLBAsync(scene, "fileName", options);
-    const blob = exportScene.glTFFiles["fileName" + ".glb"] as Blob;
-
-    const arr = new Uint8Array(await blob.arrayBuffer());
-    const io = new WebIO().registerExtensions(ALL_EXTENSIONS);
-    const doc = await io.readBinary(arr);
-    //
-    await MeshoptEncoder.ready;
-    //
-    await doc.transform(
-      dedup(),
-      prune(),
-      resample(),
-      textureCompress({
-        targetFormat: "webp",
-        resize: [1024, 2024],
-      }),
-      quantize()
-    );
-
-    //
-    let glb = await io.writeBinary(doc);
-    // Then one may convert it to the URL
-    let assetBlob = new Blob([glb]);
-    const assetUrl = URL.createObjectURL(assetBlob);
-    const link = document.createElement("a");
-    link.href = assetUrl;
-    link.download = "SomeName" + ".glb";
-    link.click();
-    glb = null;
-  }
+  new NiceLoader(scene, modelArr, callback, { toConsole: false });
 
   //
   engine.runRenderLoop(() => {
@@ -132,4 +79,58 @@ async function renderScene() {
   });
 }
 
-await renderScene();
+async function exportOptimized(scene: Scene) {
+  let options = {
+    shouldExportNode: function (node: any) {
+      return node !== scene.activeCamera;
+    },
+  };
+
+  const exportScene = await GLTF2Export.GLBAsync(scene, "fileName", options);
+  let blob = exportScene.glTFFiles["fileName" + ".glb"] as Blob;
+
+  let arr = new Uint8Array(await blob.arrayBuffer());
+  const io = new WebIO().registerExtensions(ALL_EXTENSIONS);
+  const doc = await io.readBinary(arr);
+  //
+  await MeshoptEncoder.ready;
+  //
+  await doc.transform(
+    dedup(),
+    prune(),
+    resample(),
+    textureCompress({
+      targetFormat: "webp",
+      resize: [1024, 2024],
+    }),
+    quantize()
+  );
+
+  //
+  let glb = await io.writeBinary(doc);
+  // Then one may convert it to the URL
+  let assetBlob = new Blob([glb]);
+  const assetUrl = URL.createObjectURL(assetBlob);
+  const link = document.createElement("a");
+  link.href = assetUrl;
+  link.download = "SomeName" + ".glb";
+  link.click();
+}
+
+//
+function callback(scene: Scene) {
+  let button = document.getElementById("optimized");
+  if (!button) {
+    button = document.createElement("button");
+    button.setAttribute("id", "optimized");
+    button.style.position = "absolute";
+    button.style.top = "10px";
+    button.style.right = "410px";
+    button.innerText = "Save Optimized";
+    document.body.appendChild(button);
+  }
+
+  button.onclick = function (_evt) {
+    exportOptimized(scene);
+  };
+}

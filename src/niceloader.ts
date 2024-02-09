@@ -8,8 +8,9 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { GLTF2Export } from "@babylonjs/serializers/glTF";
 
 interface INiceLoaderOptions {
-  container: string;
-  checkCollisions: boolean;
+  container?: string;
+  checkCollisions?: boolean;
+  toConsole: boolean;
 }
 
 /**
@@ -17,18 +18,21 @@ interface INiceLoaderOptions {
  * Designed to use when developing Babylon.js scenes. Just call the Niceloader to quickly check any models directly in your application environment.
  * @param scene Babylon Scene
  * @param arr Pass here an empty array for storing loaded models
- * @param options Additional options: container (HTML parent element), checkCollisions
+ * @param options Additional options: container (HTML parent element), checkCollisions, toConsole.
+ * @param options.container HTML parent element. If not set - document.body by default.
+ * @param options.checkCollisions Sets collisions to all imported meshes. Useful when debugging scenes with collisions.
+ * @param options.toConsole If true, writes transform JSON to console, else (by default) saves JSON file.
  */
 export class NiceLoader {
   scene: Scene;
   arr: Array<MeshAssetTask>;
-  callback: () => void;
+  callback: (scene: Scene) => void;
   options?: INiceLoaderOptions;
 
   constructor(
     scene: Scene,
     arr: Array<MeshAssetTask>,
-    callback: () => void,
+    callback: (scene: Scene) => void,
     options?: INiceLoaderOptions
   ) {
     this.scene = scene;
@@ -37,7 +41,7 @@ export class NiceLoader {
     this.callback = callback;
 
     this.createUploadButton();
-    this.uploadModel(scene, arr);
+    this.uploadModel(scene, arr, options);
   }
 
   createUploadButton() {
@@ -144,6 +148,12 @@ export class NiceLoader {
     }
     wrapper.appendChild(checkbox);
     wrapper.appendChild(label);
+
+    this.scene.onDisposeObservable.add(() => {
+      if (document.getElementById("nl-wrapper")) {
+        document.getElementById("nl-wrapper")!.remove();
+      }
+    });
   }
 
   uploadModel(scene: Scene, arr: Array<MeshAssetTask>) {
@@ -183,7 +193,7 @@ export class NiceLoader {
       document.getElementById("saveAll")!.style.display = "initial";
       document.getElementById("saveAllLabel")!.style.display = "initial";
 
-      this.callback();
+      this.callback(scene);
     });
 
     assetsManager.onTaskErrorObservable.add(function (task) {
@@ -247,7 +257,7 @@ export class NiceLoader {
 
     // EXPORT
 
-    document.getElementById("exportButton2")!.onclick = function (_e) {
+    document.getElementById("exportButton2")!.onclick = () => {
       const transformsArray: any = [];
       modelsArray.forEach((element) => {
         const transforms = {
@@ -259,7 +269,12 @@ export class NiceLoader {
         transformsArray.push(transforms);
       });
       // Convert JSON to the file to start download
-      downloadCSV(transformsArray);
+
+      if (this.options?.toConsole) {
+        console.log(JSON.stringify(transformsArray));
+      } else {
+        downloadCSV(transformsArray);
+      }
     };
 
     // Export GLB, either the last uploaded one or the whole scene with uploaded models
@@ -297,6 +312,12 @@ export class NiceLoader {
         glb.downloadFiles();
       });
     };
+  }
+  //
+  dispose() {
+    if (document.getElementById("nl-wrapper")) {
+      document.getElementById("nl-wrapper")!.remove();
+    }
   }
 }
 
