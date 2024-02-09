@@ -41,7 +41,7 @@ export class NiceLoader {
     this.callback = callback;
 
     this.createUploadButton();
-    this.uploadModel(scene, arr, options);
+    this.uploadModel(scene, arr);
   }
 
   createUploadButton() {
@@ -277,7 +277,7 @@ export class NiceLoader {
       }
     };
 
-    // Export GLB, either the last uploaded one or the whole scene with uploaded models
+    // Export GLB with BABYLON default exporter, either the last uploaded one or the whole scene with uploaded models
     document.getElementById("exportButton")!.onclick = function (_e) {
       console.log(
         (document.getElementById("saveAll") as HTMLInputElement).checked

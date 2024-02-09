@@ -67,7 +67,7 @@ async function renderScene() {
 
   const modelArr: any = [];
 
-  new NiceLoader(scene, modelArr, callback, { toConsole: false });
+  new NiceLoader(scene, modelArr, callback, { toConsole: true });
 
   //
   engine.runRenderLoop(() => {
