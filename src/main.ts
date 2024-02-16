@@ -7,6 +7,9 @@ import {
   Vector3,
   CubeTexture,
   Tools,
+  MeshBuilder,
+  Axis,
+  Space,
 } from "@babylonjs/core";
 import { Inspector } from "@babylonjs/inspector";
 import "@babylonjs/loaders";
@@ -24,6 +27,9 @@ import {
 } from "@gltf-transform/functions";
 import { MeshoptEncoder } from "meshoptimizer";
 import { NiceLoader } from "./niceloader";
+
+import { AnimatedGifTexture } from "./AnimatedGIF/animatedGifTexture";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 
 await renderScene();
 
@@ -64,6 +70,38 @@ async function renderScene() {
     scene
   );
   hemisphericLight.intensity = 0.5;
+
+  //
+
+  // Creating the plane to show video
+  const TV = MeshBuilder.CreatePlane("TV", { width: 10, height: 10 }, scene);
+  // TV.position = new Vector3(0, 10, 20);
+  TV.scaling.scaleInPlace(1);
+  // Rotate to turn vertical
+  TV.rotate(Axis.Z, Math.PI, Space.WORLD);
+  // Rotate along Y Axis, if needed, with rotY
+  TV.rotate(Axis.Y, Tools.ToRadians(0), Space.WORLD);
+  TV.rotate(Axis.X, Tools.ToRadians(180), Space.WORLD);
+
+  // Prepare dummy material to show when switching video sources
+  const dummyMat = new StandardMaterial("dummyMat", scene);
+  dummyMat.backFaceCulling = false;
+  dummyMat.disableLighting = true;
+
+  TV.material = dummyMat;
+
+  // Creates a Gif Texture (looks simple ;-))
+  const gifTexture = new AnimatedGifTexture("/pencil.gif", engine, () => {
+    console.log("GIF Loaded");
+    console.log(gifTexture);
+    console.log("width: " + gifTexture._frames![0].dims.width);
+    console.log("height: " + gifTexture._frames![0].dims.height);
+  });
+  //  gifTexture.invertZ = true;
+  dummyMat.diffuseTexture = gifTexture;
+  dummyMat.emissiveTexture = gifTexture;
+
+  //
 
   const modelArr: any = [];
 

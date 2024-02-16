@@ -21,6 +21,7 @@
     "@gltf-transform/core": "^3.10.0",
     "@gltf-transform/extensions": "^3.10.0",
     "@gltf-transform/functions": "^3.10.0",
+    "gifuct-js": "^2.1.2",
     "meshoptimizer": "^0.20.0"
   }
 }
